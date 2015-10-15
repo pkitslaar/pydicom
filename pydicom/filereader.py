@@ -116,7 +116,7 @@ class DicomIter(object):
 
 
 def data_element_generator(fp, is_implicit_VR, is_little_endian,
-                           stop_when=None, defer_size=None, encoding=default_encoding):
+                           stop_when=None, defer_size=None, encoding=default_encoding, value_tell_offset = 0):
     """Create a generator to efficiently return the raw data elements.
 
     Parameters
@@ -231,6 +231,8 @@ def data_element_generator(fp, is_implicit_VR, is_little_endian,
                 fp.seek(value_tell - rewind_length)
                 raise StopIteration
 
+        value_tell += value_tell_offset
+
         # Reading the value
         # First case (most common): reading a value with a defined length
         if length != 0xFFFFFFFF:
@@ -306,7 +308,7 @@ def data_element_generator(fp, is_implicit_VR, is_little_endian,
 
 
 def read_dataset(fp, is_implicit_VR, is_little_endian, bytelength=None,
-                 stop_when=None, defer_size=None, parent_encoding=default_encoding):
+                 stop_when=None, defer_size=None, parent_encoding=default_encoding, value_tell_offset = 0):
     """Return a Dataset instance containing the next dataset in the file.
 
     Parameters
@@ -341,7 +343,7 @@ def read_dataset(fp, is_implicit_VR, is_little_endian, bytelength=None,
     raw_data_elements = dict()
     fpStart = fp.tell()
     de_gen = data_element_generator(fp, is_implicit_VR, is_little_endian,
-                                    stop_when, defer_size, parent_encoding)
+                                    stop_when, defer_size, parent_encoding, value_tell_offset)
     try:
         while (bytelength is None) or (fp.tell() - fpStart < bytelength):
             raw_data_element = next(de_gen)
@@ -416,11 +418,11 @@ def read_sequence_item(fp, is_implicit_VR, is_little_endian, encoding, offset=0)
             fp.tell() - 4 + offset, bytes2hex(bytes_read)))
     if length == 0xFFFFFFFF:
         ds = read_dataset(fp, is_implicit_VR, is_little_endian,
-                          bytelength=None, parent_encoding=encoding)
+                          bytelength=None, parent_encoding=encoding, value_tell_offset = offset)
         ds.is_undefined_length_sequence_item = True
     else:
         ds = read_dataset(fp, is_implicit_VR, is_little_endian, length,
-                          parent_encoding=encoding)
+                          parent_encoding=encoding, value_tell_offset = offset)
         ds.is_undefined_length_sequence_item = False
         logger.debug("%08x: Finished sequence item" % (fp.tell() + offset,))
     ds.seq_item_tell = seq_item_tell
